@@ -40,7 +40,7 @@ class DwarfLoaderThread(threading.Thread):
 
 class DwarfUi(Gtk.Window):
     def __init__(self, root_element = None):
-        Gtk.Window.__init__(self, title="Hello World")
+        Gtk.Window.__init__(self, title="Dwarf Tree")
 
         self.connect("delete-event", Gtk.main_quit)
 
