@@ -6,6 +6,7 @@ from elftools.elf.elffile import ELFFile
 from dwarfmodel import DwarfModelBuilder, ChildrenGroup
 
 import threading
+import argparse
 import signal
 import sys
 import os
@@ -39,7 +40,7 @@ class DwarfLoaderThread(threading.Thread):
 
 
 class DwarfUi(Gtk.Window):
-    def __init__(self, root_element = None):
+    def __init__(self, file_to_open = None):
         Gtk.Window.__init__(self, title="Dwarf Tree")
 
         self.connect("delete-event", Gtk.main_quit)
@@ -57,8 +58,6 @@ class DwarfUi(Gtk.Window):
         box.pack_start(toolbar, False, False, 0)
 
         self.tree = self.build_tree_view()
-        store = self.build_tree_store(root_element)
-        self.tree.set_model(store)
 
         tree_scrolled_win = Gtk.ScrolledWindow()
         tree_scrolled_win.add(self.tree)
@@ -72,6 +71,9 @@ class DwarfUi(Gtk.Window):
         box.pack_end(self.statusbar, False, False, 0)
 
         self.loader_thread = None
+
+        if file_to_open:
+            self.open_file(file_to_open)
 
     def build_menus(self, menus_xml_file):
         uimanager = self.create_ui_manager(menus_xml_file)
@@ -162,12 +164,16 @@ class DwarfUi(Gtk.Window):
         return ret
 
     def open_file(self, filename):
-        f = open(filename, 'rb')
-        if self.loader_thread:
-            self.loader_thread.request_stop()
+        try:
+            f = open(filename, 'rb')
+            if self.loader_thread:
+                self.loader_thread.request_stop()
 
-        self.loader_thread = DwarfLoaderThread(self, f)
-        self.loader_thread.start()
+            self.loader_thread = DwarfLoaderThread(self, f)
+            self.loader_thread.start()
+
+        except FileNotFoundError as e:
+            self.display_status("File %s not found..." % (filename))
 
     def on_menu_file_open(self, widget):
         dialog = Gtk.FileChooserDialog(
@@ -201,10 +207,29 @@ class DwarfUi(Gtk.Window):
     def done_loading(self, root_elem):
         store = self.build_tree_store(root_elem)
         self.tree.set_model(store)
+        self.display_status("Done loading")
 
+    def display_status(self, text):
+        self.statusbar.push(self.statusbar_context_id, text)
+
+def print_version():
+    print("DWARF Tree version 0.00001bbb")
 
 if __name__ == "__main__":
-    win = DwarfUi()
+    parser = argparse.ArgumentParser()
+    parser.add_argument('elfbinary', help = 'The ELF binary to analyze', nargs = '?')
+    parser.add_argument('--verbose', action = "store_true")
+    parser.add_argument('--version', action = "store_true")
+    args = parser.parse_args()
+
+    if args.version:
+        print_version()
+        sys.exit(0)
+
+    if args.verbose:
+        print('Verbose mode enabled.')
+
+    win = DwarfUi(args.elfbinary)
     win.show_all()
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     Gtk.main()
