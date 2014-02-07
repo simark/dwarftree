@@ -1,0 +1,14 @@
+<ui>
+  <menubar name='MenuBar'>
+    <menu action='FileMenu'>
+      <menuitem action='FileOpen' />
+      <menuitem action='FileQuit' />
+    </menu>
+    <menu action='EditMenu'>
+      <menuitem action='EditFind' />
+    </menu>
+  </menubar>
+  <toolbar name='ToolBar'>
+    <toolitem action='FileOpen' />
+  </toolbar>
+</ui>

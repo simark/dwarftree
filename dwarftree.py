@@ -1,15 +1,44 @@
 #!/usr/bin/python
 from gi.repository import Gtk
+from gi.repository import GLib
 import dwarfmodeltest
 from elftools.elf.elffile import ELFFile
 from dwarfmodel import DwarfModelBuilder, ChildrenGroup
 
+import threading
 import signal
 import sys
+import os
+
+class DwarfLoaderThread(threading.Thread):
+    def __init__(self, window, f):
+        super(DwarfLoaderThread, self).__init__()
+        self.f = f
+        self.window = window
+        self.stop_requested = False
+
+    def request_stop(self):
+        self.stop_requested = True
+
+    def run(self):
+        elf = ELFFile(self.f)
+
+        if not elf.has_dwarf_info():
+            GLib.idle_add(self.window.display_error, "This file has no DWARF info.")
+            return
+
+        di = elf.get_dwarf_info()
+
+        builder = DwarfModelBuilder(di)
+        root_elem = builder.build()
+
+        if self.stop_requested:
+            return
+
+        GLib.idle_add(self.window.done_loading, root_elem)
 
 
 class DwarfUi(Gtk.Window):
-
     def __init__(self, root_element = None):
         Gtk.Window.__init__(self, title="Hello World")
 
@@ -20,7 +49,7 @@ class DwarfUi(Gtk.Window):
         box = Gtk.Box(orientation = Gtk.Orientation.VERTICAL)
         self.add(box)
 
-        menubar, toolbar = self.build_menus("menus.xml")
+        menubar, toolbar = self.build_menus(os.path.dirname(__file__) +"/menus.xml")
 
         box.pack_start(menubar, False, False, 0)
         box.pack_start(toolbar, False, False, 0)
@@ -29,30 +58,32 @@ class DwarfUi(Gtk.Window):
         store = self.build_tree_store(root_element)
         self.tree.set_model(store)
 
-        box.add(self.tree)
+        box.pack_start(self.tree, True, True, 0)
+
+        self.loader_thread = None
 
     def build_menus(self, menus_xml_file):
         uimanager = self.create_ui_manager(menus_xml_file)
 
-        action_group = Gtk.ActionGroup("actions")
+        action_group = Gtk.ActionGroup(name = "actions")
 
         # File menu
-        action_filemenu = Gtk.Action("FileMenu", "File", None, None)
+        action_filemenu = Gtk.Action(name = "FileMenu", label = "File", tooltip = None, stock_id = None)
         action_group.add_action(action_filemenu)
 
-        action_fileopen = Gtk.Action("FileOpen", "Open", "Open a DWARF file", Gtk.STOCK_OPEN)
+        action_fileopen = Gtk.Action(name = "FileOpen", label = "Open", tooltip = "Open a DWARF file", stock_id = Gtk.STOCK_OPEN)
         action_group.add_action(action_fileopen)
         action_fileopen.connect("activate", self.on_menu_file_open)
 
-        action_filequit = Gtk.Action("FileQuit", None, None, Gtk.STOCK_QUIT)
+        action_filequit = Gtk.Action(name = "FileQuit", label = "Quit", tooltip = None, stock_id = Gtk.STOCK_QUIT)
         action_group.add_action(action_filequit)
         action_filequit.connect("activate", self.on_menu_file_quit)
 
         # Edit menu
-        action_editmenu = Gtk.Action("EditMenu", "Edit", None, None)
+        action_editmenu = Gtk.Action(name = "EditMenu", label = "Edit", tooltip = None, stock_id = None)
         action_group.add_action(action_editmenu)
 
-        action_editfind = Gtk.Action("EditFind", "Find", None, Gtk.STOCK_FIND)
+        action_editfind = Gtk.Action(name = "EditFind", label = "Find", tooltip = None, stock_id = Gtk.STOCK_FIND)
         action_group.add_action(action_editfind)
         action_editfind.connect("activate", self.on_menu_edit_find)
 
@@ -78,21 +109,21 @@ class DwarfUi(Gtk.Window):
 
         tree.append_column(Gtk.TreeViewColumn("Element", Gtk.CellRendererText(), text = 0))
         tree.append_column(Gtk.TreeViewColumn("Offset",  Gtk.CellRendererText(), text = 1))
+        tree.append_column(Gtk.TreeViewColumn("Type",  Gtk.CellRendererText(), text = 2))
 
         return tree
 
     def build_tree_store(self, root_element):
-        store = Gtk.TreeStore(str, str)
+        store = Gtk.TreeStore(str, str, str)
 
         if root_element is not None:
 
             # Create root element
-            root_iter = store.append(None, [root_element.name, ""])
+            root_iter = store.append(None, [root_element.name, "", ""])
 
             self.build_tree_store_rec(store, root_iter, root_element)
 
         return store
-
 
     def build_tree_store_rec(self, store, parent_iter, parent):
         for group_id in parent.children_groups:
@@ -100,43 +131,39 @@ class DwarfUi(Gtk.Window):
             if group_id is not None:
                 group_name = ChildrenGroup.name(group_id)
                 # Add a tree element for the group
-                add_to_iter = store.append(parent_iter, [group_name, ""])
+                add_to_iter = store.append(parent_iter, [group_name, "", ""])
             else:
                 add_to_iter = parent_iter
 
             for child in children_list:
-                print("Appending")
-                child_iter = store.append(add_to_iter, [child.name, "0x%x" % (child.die.offset)])
+                values = self.build_element_row_values(child)
+                child_iter = store.append(add_to_iter, values)
 
                 self.build_tree_store_rec(store, child_iter, child)
 
+    def build_element_row_values(self, elem):
+        ret = []
+
+        ret.append(elem.name)
+        ret.append("0x%x" % (elem.die.offset))
+        ret.append(elem.type_string if elem.type_string else "")
+
+        return ret
+
     def open_file(self, filename):
-        with open(filename, 'rb') as f:
-            elf = ELFFile(f)
+        f = open(filename, 'rb')
+        if self.loader_thread:
+            self.loader_thread.request_stop()
 
-            if not elf.has_dwarf_info():
-                print("%s has no dwarf info." % filename)
-                return
-
-            di = elf.get_dwarf_info()
-
-            builder = DwarfModelBuilder(di)
-            root_elem = builder.build()
-
-            dwarfmodeltest.print_rec(root_elem)
-
-            store = self.build_tree_store(root_elem)
-            self.tree.set_model(store)
+        self.loader_thread = DwarfLoaderThread(self, f)
+        self.loader_thread.start()
 
     def on_menu_file_open(self, widget):
         dialog = Gtk.FileChooserDialog(
-            "Choose an ELF binary",
-            self, Gtk.FileChooserAction.OPEN,
-            (
-                Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL,
-                Gtk.STOCK_OPEN, Gtk.ResponseType.OK
-            )
-        )
+            title = "Choose an ELF binary",
+            parent = self, action = Gtk.FileChooserAction.OPEN)
+        dialog.add_button(Gtk.STOCK_OK, Gtk.ResponseType.OK)
+        dialog.add_button(Gtk.STOCK_CANCEL, Gtk.ResponseType.CANCEL)
 
         resp = dialog.run()
 
@@ -151,13 +178,22 @@ class DwarfUi(Gtk.Window):
     def on_menu_file_quit(self, widget):
         Gtk.main_quit()
 
+    def display_error(self, text):
+        dialog = Gtk.MessageDialog(
+            parent = self,
+            text = text,
+            message_type = Gtk.MessageType.ERROR)
+        dialog.add_button(Gtk.STOCK_OK, Gtk.ResponseType.OK)
+        dialog.run()
+        dialog.destroy()
+
+    def done_loading(self, root_elem):
+        store = self.build_tree_store(root_elem)
+        self.tree.set_model(store)
+
+
 if __name__ == "__main__":
-    #filename = sys.argv[1]
-    """
-
-    """
     win = DwarfUi()
-
     win.show_all()
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     Gtk.main()
