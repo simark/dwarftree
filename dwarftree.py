@@ -44,6 +44,7 @@ class DwarfUi(Gtk.Window):
 
         self.connect("delete-event", Gtk.main_quit)
 
+		self.set_default_size(640, 480)
         self.maximize()
 
         box = Gtk.Box(orientation = Gtk.Orientation.VERTICAL)
