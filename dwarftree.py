@@ -65,7 +65,11 @@ class DwarfUi(Gtk.Window):
 
         box.pack_start(tree_scrolled_win, True, True, 0)
 
+        self.statusbar = Gtk.Statusbar()
+        self.statusbar_context_id = self.statusbar.get_context_id("some context")
+        self.statusbar.push(self.statusbar_context_id, "Welcome !")
 
+        box.pack_end(self.statusbar, False, False, 0)
 
         self.loader_thread = None
 
