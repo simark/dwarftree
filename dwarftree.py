@@ -44,14 +44,14 @@ class DwarfUi(Gtk.Window):
 
         self.connect("delete-event", Gtk.main_quit)
 
-		self.set_default_size(640, 480)
+        self.set_default_size(640, 480)
         self.maximize()
 
         box = Gtk.Box(orientation = Gtk.Orientation.VERTICAL)
         self.add(box)
 
         menubar, toolbar = self.build_menus(
-			os.path.join(os.path.dirname(__file__), "menus.xml"))
+            os.path.join(os.path.dirname(__file__), "menus.xml"))
 
         box.pack_start(menubar, False, False, 0)
         box.pack_start(toolbar, False, False, 0)
@@ -60,7 +60,12 @@ class DwarfUi(Gtk.Window):
         store = self.build_tree_store(root_element)
         self.tree.set_model(store)
 
-        box.pack_start(self.tree, True, True, 0)
+        tree_scrolled_win = Gtk.ScrolledWindow()
+        tree_scrolled_win.add(self.tree)
+
+        box.pack_start(tree_scrolled_win, True, True, 0)
+
+
 
         self.loader_thread = None
 
@@ -74,11 +79,11 @@ class DwarfUi(Gtk.Window):
         action_group.add_action(action_filemenu)
 
         action_fileopen = Gtk.Action(name = "FileOpen", label = "Open", tooltip = "Open a DWARF file", stock_id = Gtk.STOCK_OPEN)
-        action_group.add_action(action_fileopen)
+        action_group.add_action_with_accel(action_fileopen, None)
         action_fileopen.connect("activate", self.on_menu_file_open)
 
         action_filequit = Gtk.Action(name = "FileQuit", label = "Quit", tooltip = None, stock_id = Gtk.STOCK_QUIT)
-        action_group.add_action(action_filequit)
+        action_group.add_action_with_accel(action_filequit, None)
         action_filequit.connect("activate", self.on_menu_file_quit)
 
         # Edit menu
