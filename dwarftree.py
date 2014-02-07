@@ -49,7 +49,8 @@ class DwarfUi(Gtk.Window):
         box = Gtk.Box(orientation = Gtk.Orientation.VERTICAL)
         self.add(box)
 
-        menubar, toolbar = self.build_menus(os.path.dirname(__file__) +"/menus.xml")
+        menubar, toolbar = self.build_menus(
+			os.path.join(os.path.dirname(__file__), "menus.xml"))
 
         box.pack_start(menubar, False, False, 0)
         box.pack_start(toolbar, False, False, 0)
