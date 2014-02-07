@@ -277,6 +277,17 @@ class DwarfModelBuilder:
         name = self.format_type_name(enumeration_die)
         enum_elem = Element(name, enumeration_die)
 
+        enum_elem.add_children(None, self.visit_children_of_tag(enumeration_die, 'DW_TAG_enumerator', self.visit_enumerator))
+
+        return enum_elem
+
+    def visit_enumerator(self, enumerator_die):
+        label = die_get_name(enumerator_die)
+        num = die_get_attr(enumerator_die, 'DW_AT_const_value')
+        name = "%s = %d" % (label, num)
+
+        enum_elem = Element(name, enumerator_die)
+
         return enum_elem
 
     def visit_pointer_types(self, pointer_type_die):
