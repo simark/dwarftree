@@ -217,7 +217,7 @@ class DwarfModelBuilder:
 
     def visit_cu(self, cu_die):
         name = die_get_name(cu_die)
-        cu_elem = Element("Compile unit %s" % (name), cu_die)
+        cu_elem = Element(name, cu_die)
 
         cu_elem.add_children(ChildrenGroup.BaseType,self.visit_children_of_tag(cu_die, 'DW_TAG_base_type', self.visit_base_type))
         cu_elem.add_children(ChildrenGroup.StructType,self.visit_children_of_tag(cu_die, 'DW_TAG_structure_type', self.visit_struct_type))
