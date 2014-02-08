@@ -1,6 +1,7 @@
 #!/usr/bin/python
 from gi.repository import Gtk
 from gi.repository import GLib
+from gi.repository import Gio
 import dwarfmodeltest
 from elftools.elf.elffile import ELFFile
 from dwarfmodel import DwarfModelBuilder, ChildrenGroup
@@ -32,12 +33,26 @@ class DwarfLoaderThread(threading.Thread):
         di = elf.get_dwarf_info()
 
         builder = DwarfModelBuilder(di, self.verbose)
-        root_elem = builder.build()
+        total = builder.num_cus()
+        n = 0
+
+        generator = builder.build_step()
+        file_elem = next(generator)
+        while not file_elem:
+            if self.stop_requested:
+                return
+
+            GLib.idle_add(self.window.load_progress, float(n) / total)
+            n = n + 1
+            file_elem = next(generator)
+
+
+        #root_elem = builder.build()
 
         if self.stop_requested:
             return
 
-        GLib.idle_add(self.window.done_loading, root_elem)
+        GLib.idle_add(self.window.done_loading, file_elem)
 
 
 class DwarfUi(Gtk.Window):
@@ -67,11 +82,18 @@ class DwarfUi(Gtk.Window):
 
         box.pack_start(tree_scrolled_win, True, True, 0)
 
+        # Status bar stuff
+        statusbarbox = Gtk.Box(orientation = Gtk.Orientation.HORIZONTAL)
+        box.pack_end(statusbarbox, False, False, 0)
+
         self.statusbar = Gtk.Statusbar()
         self.statusbar_context_id = self.statusbar.get_context_id("some context")
         self.statusbar.push(self.statusbar_context_id, "Welcome !")
 
-        box.pack_end(self.statusbar, False, False, 0)
+        self.loading_progress_bar = Gtk.ProgressBar()
+
+        statusbarbox.pack_start(self.statusbar, True, True, 0)
+        statusbarbox.pack_end(self.loading_progress_bar, False, False, 0)
 
         self.loader_thread = None
 
@@ -174,6 +196,7 @@ class DwarfUi(Gtk.Window):
 
             self.loader_thread = DwarfLoaderThread(self, f, self.verbose)
             self.loader_thread.start()
+            self.display_status("Loading...")
 
         except FileNotFoundError as e:
             self.display_status("File %s not found..." % (filename))
@@ -214,6 +237,9 @@ class DwarfUi(Gtk.Window):
 
     def display_status(self, text):
         self.statusbar.push(self.statusbar_context_id, text)
+
+    def load_progress(self, fraction):
+        self.loading_progress_bar.set_fraction(fraction)
 
 def print_version():
     print("DWARF Tree version 0.00001bbb")

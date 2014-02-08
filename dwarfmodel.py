@@ -93,6 +93,13 @@ class DwarfModelBuilder:
         if self.verbose:
             print(text)
 
+    def num_cus(self):
+        n = 0
+        for cu in self.dwarf_info.iter_CUs():
+            n = n + 1
+
+        return n
+
     def build(self):
         file_elem = Element("File", None)
 
@@ -104,6 +111,20 @@ class DwarfModelBuilder:
             file_elem.add_child(None, cu_elem)
 
         return file_elem
+
+    def build_step(self):
+        file_elem = Element("File", None)
+        yield None
+
+        for cu in self.dwarf_info.iter_CUs():
+            top_die = cu.get_top_DIE()
+
+            self._types_pass(top_die)
+            cu_elem = self.visit_cu(top_die)
+            file_elem.add_child(None, cu_elem)
+            yield None
+
+        yield file_elem
 
     def format_type_name(self, type_die):
         tag = type_die.tag
