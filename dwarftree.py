@@ -12,11 +12,12 @@ import sys
 import os
 
 class DwarfLoaderThread(threading.Thread):
-    def __init__(self, window, f):
+    def __init__(self, window, f, verbose):
         super(DwarfLoaderThread, self).__init__()
         self.f = f
         self.window = window
         self.stop_requested = False
+        self.verbose = verbose
 
     def request_stop(self):
         self.stop_requested = True
@@ -30,7 +31,7 @@ class DwarfLoaderThread(threading.Thread):
 
         di = elf.get_dwarf_info()
 
-        builder = DwarfModelBuilder(di)
+        builder = DwarfModelBuilder(di, self.verbose)
         root_elem = builder.build()
 
         if self.stop_requested:
@@ -40,8 +41,10 @@ class DwarfLoaderThread(threading.Thread):
 
 
 class DwarfUi(Gtk.Window):
-    def __init__(self, file_to_open = None):
-        Gtk.Window.__init__(self, title="Dwarf Tree")
+    def __init__(self, file_to_open = None, verbose = False):
+        super(DwarfUi, self).__init__(title = "DWARF Tree")
+
+        self.verbose = verbose
 
         self.connect("delete-event", Gtk.main_quit)
 
@@ -169,7 +172,7 @@ class DwarfUi(Gtk.Window):
             if self.loader_thread:
                 self.loader_thread.request_stop()
 
-            self.loader_thread = DwarfLoaderThread(self, f)
+            self.loader_thread = DwarfLoaderThread(self, f, self.verbose)
             self.loader_thread.start()
 
         except FileNotFoundError as e:
@@ -229,7 +232,7 @@ if __name__ == "__main__":
     if args.verbose:
         print('Verbose mode enabled.')
 
-    win = DwarfUi(args.elfbinary)
+    win = DwarfUi(args.elfbinary, verbose = args.verbose)
     win.show_all()
     signal.signal(signal.SIGINT, signal.SIG_DFL)
     Gtk.main()

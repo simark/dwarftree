@@ -55,9 +55,6 @@ class Element:
 
         self.children_groups[group] += child_elements
 
-def dp(s):
-    print(s, file = sys.stderr)
-
 def filter_children_by_tag(die, tag):
     return [x for x in die.iter_children() if x.tag == tag]
 
@@ -84,12 +81,17 @@ def die_get_upper_bound(die):
 
 class DwarfModelBuilder:
     # dwarf_info: a pyelftools DWAFRInfo object
-    def __init__(self, dwarf_info):
+    def __init__(self, dwarf_info, verbose):
         self.dwarf_info = dwarf_info
+        self.verbose = verbose
 
         # (cu, relative offset) -> type string
         # abs offset = rel offset + cu offset
         self.types = dict()
+
+    def debug(self, text):
+        if self.verbose:
+            print(text)
 
     def build(self):
         file_elem = Element("File", None)
@@ -150,7 +152,6 @@ class DwarfModelBuilder:
                 return "void const"
 
             typ = self.lookup_type(type_die.cu, consted_type_offset)
-            print("%x" % die_get_type(type_die))
             return self.format_type_name(typ) + " const"
 
         if tag == 'DW_TAG_volatile_type':
@@ -181,9 +182,9 @@ class DwarfModelBuilder:
             return self.format_type_name(type_die)
 
     def lookup_type(self, cu, offset):
-        dp("Type lookup at %x + %x = %x" % (cu.cu_offset, offset, cu.cu_offset + offset))
+        self.debug("Type lookup at %x + %x = %x" % (cu.cu_offset, offset, cu.cu_offset + offset))
         if (cu, offset) not in self.types:
-            dp("Returns none!")
+            self.debug("Returns none!")
             return None
 
         return self.types[(cu, offset)]
@@ -205,7 +206,7 @@ class DwarfModelBuilder:
         if tag in type_tags:
             cu = die.cu
             offset = die.offset - die.cu.cu_offset
-            dp("adding type at %x" % (offset))
+            self.debug("adding type at %x" % (offset))
 
             assert((cu, offset) not in self.types)
 
