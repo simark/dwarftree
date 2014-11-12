@@ -8,6 +8,8 @@ class ChildrenGroup:
     Typedef = 4
     Enumeration = 5
     PointerType = 6
+    ConstType = 7
+    VolatileType = 8
 
     SubProgram = 7
 
@@ -19,6 +21,8 @@ class ChildrenGroup:
         "Typedefs",
         "Enumerations",
         "Pointer types",
+        "Const types",
+        "Volatile types",
         "Subprograms",
     ]
 
@@ -248,6 +252,8 @@ class DwarfModelBuilder:
         cu_elem.add_children(ChildrenGroup.Enumeration,self.visit_children_of_tag(cu_die, 'DW_TAG_enumeration_type', self.visit_enumeration))
         cu_elem.add_children(ChildrenGroup.PointerType,self.visit_children_of_tag(cu_die, 'DW_TAG_pointer_type', self.visit_pointer_types))
         cu_elem.add_children(ChildrenGroup.SubProgram,self.visit_children_of_tag(cu_die, 'DW_TAG_subprogram', self.visit_subprogram))
+        cu_elem.add_children(ChildrenGroup.ConstType,self.visit_children_of_tag(cu_die, 'DW_TAG_const_type', self.visit_const_type))
+        cu_elem.add_children(ChildrenGroup.VolatileType,self.visit_children_of_tag(cu_die, 'DW_TAG_volatile_type', self.visit_volatile_type))
 
         return cu_elem
 
@@ -317,6 +323,18 @@ class DwarfModelBuilder:
         pointer_elem = Element(name, pointer_type_die)
 
         return pointer_elem
+
+    def visit_const_type(self, const_type_die):
+        name = self.format_type_name(const_type_die)
+        const_elem = Element(name, const_type_die)
+
+        return const_elem
+
+    def visit_volatile_type(self, volatile_type_die):
+        name = self.format_type_name(volatile_type_die)
+        volatile_elem = Element(name, volatile_type_die)
+
+        return volatile_elem
 
     def visit_subprogram(self, subprogram_type_die):
         name = die_get_name(subprogram_type_die)
