@@ -16,6 +16,8 @@ class ChildrenGroup:
     FormalParameter = 10
     LexicalBlock = 11
 
+    Variable = 12
+
     names = [
         "Basic types",
         "Structure types",
@@ -29,6 +31,7 @@ class ChildrenGroup:
         "Subprograms",
         "Formal parameters",
         "Lexical Blocks",
+        "Variables",
     ]
 
     def name(group):
@@ -387,6 +390,7 @@ class DwarfModelBuilder:
 
         subprogram_elem.add_children(ChildrenGroup.FormalParameter, self.visit_children_of_tag(subprogram_type_die, 'DW_TAG_formal_parameter', self.visit_formal_parameter))
         subprogram_elem.add_children(ChildrenGroup.LexicalBlock, self.visit_children_of_tag(subprogram_type_die, 'DW_TAG_lexical_block', self.visit_lexical_block))
+        subprogram_elem.add_children(ChildrenGroup.Variable, self.visit_children_of_tag(subprogram_type_die, 'DW_TAG_variable', self.visit_variable))
 
         return subprogram_elem
 
@@ -406,4 +410,15 @@ class DwarfModelBuilder:
 
         elem = Element(name, lexical_block_die)
 
+        elem.add_children(ChildrenGroup.LexicalBlock, self.visit_children_of_tag(lexical_block_die, 'DW_TAG_lexical_block', self.visit_lexical_block))
+        elem.add_children(ChildrenGroup.Variable, self.visit_children_of_tag(lexical_block_die, 'DW_TAG_variable', self.visit_variable))
+
         return elem
+
+    def visit_variable(self, variable_die):
+        name = die_get_name(variable_die)
+
+        elem = Element(name, variable_die)
+
+        return elem
+
