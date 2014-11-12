@@ -11,7 +11,10 @@ class ChildrenGroup:
     ConstType = 7
     VolatileType = 8
 
-    SubProgram = 7
+    SubProgram = 9
+
+    FormalParameter = 10
+    LexicalBlock = 11
 
     names = [
         "Basic types",
@@ -24,6 +27,8 @@ class ChildrenGroup:
         "Const types",
         "Volatile types",
         "Subprograms",
+        "Formal parameters",
+        "Lexical Blocks",
     ]
 
     def name(group):
@@ -82,6 +87,7 @@ def die_get_upper_bound(die):
         return die_get_attr(die, 'DW_AT_upper_bound')
     else:
         return None
+
 
 class DwarfModelBuilder:
     # dwarf_info: a pyelftools DWAFRInfo object
@@ -340,4 +346,25 @@ class DwarfModelBuilder:
         name = die_get_name(subprogram_type_die)
         subprogram_elem = Element(name, subprogram_type_die)
 
+        subprogram_elem.add_children(ChildrenGroup.FormalParameter, self.visit_children_of_tag(subprogram_type_die, 'DW_TAG_formal_parameter', self.visit_formal_parameter))
+        subprogram_elem.add_children(ChildrenGroup.LexicalBlock, self.visit_children_of_tag(subprogram_type_die, 'DW_TAG_lexical_block', self.visit_lexical_block))
+
         return subprogram_elem
+
+    def visit_formal_parameter(self, formal_parameter_die):
+        name = die_get_name(formal_parameter_die)
+        type_ = die_get_type(formal_parameter_die)
+
+        elem = Element(name, formal_parameter_die)
+
+        return elem
+
+    def visit_lexical_block(self, lexical_block_die):
+        low_pc = die_get_attr(lexical_block_die, 'DW_AT_low_pc')
+        high_pc = die_get_attr(lexical_block_die, 'DW_AT_high_pc')
+
+        name = '0x{:x}-0x{:x}'.format(low_pc, high_pc)
+
+        elem = Element(name, lexical_block_die)
+
+        return elem
