@@ -136,6 +136,22 @@ class DwarfModelBuilder:
 
         yield file_elem
 
+    def eventually_points_to_subprogram(self, type_die):
+        assert(type_die.tag == 'DW_TAG_pointer_type')
+
+        pointed_type_offset = die_get_type(type_die)
+        type_die = self.lookup_type(type_die.cu, pointed_type_offset)
+        while True:
+            print(type_die.tag)
+            if type_die.tag == 'DW_TAG_subroutine_type':
+                return True
+
+            if type_die.tag != 'DW_TAG_pointer_type':
+                return False
+
+            pointed_type_offset = die_get_type(type_die)
+            type_die = self.lookup_type(type_die.cu, pointed_type_offset)
+
     def format_type_name(self, type_die):
         tag = type_die.tag
 
@@ -170,12 +186,13 @@ class DwarfModelBuilder:
             return self.format_type_name(subtype) + suffix
 
         if tag == 'DW_TAG_pointer_type':
+            #print(self.eventually_points_to_subprogram(type_die))
             pointed_type_offset = die_get_type(type_die)
             if pointed_type_offset is None:
                 return "void*"
 
             pointed_type = self.lookup_type(type_die.cu, pointed_type_offset)
-            return self.format_type_name(pointed_type) + "*"
+            return self.format_type_name(pointed_type) + " *"
 
         if tag == 'DW_TAG_const_type':
             consted_type_offset = die_get_type(type_die)
@@ -190,7 +207,29 @@ class DwarfModelBuilder:
             return self.format_type_name(typ) + " volatile"
 
         if tag == 'DW_TAG_subroutine_type':
-            return "!</$%?&*("
+            ret_type_offset = die_get_type(type_die)
+            if ret_type_offset:
+                ret_type_die = self.lookup_type(type_die.cu, ret_type_offset)
+
+                ret = self.format_type_name(ret_type_die)
+            else:
+                ret = "void"
+
+            ret += " function("
+
+            params = filter_children_by_tag(type_die, 'DW_TAG_formal_parameter')
+
+            for param in params:
+                param_type_offset = die_get_type(param)
+                param_type_die = self.lookup_type(type_die.cu, param_type_offset)
+
+                ret += self.format_type_name(param_type_die)
+
+                ret += ", "
+
+            ret += ")"
+
+            return ret
 
         if tag == 'DW_TAG_typedef':
             return die_get_name(type_die)
