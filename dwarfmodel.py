@@ -74,6 +74,10 @@ def die_get_attr(die, attr_name):
     if attr_name in die.attributes:
         return die.attributes[attr_name].value
 
+def die_get_attr_form(die, attr_name):
+    if attr_name in die.attributes:
+        return die.attributes[attr_name].form
+
 def die_get_name(die):
     name = die_get_attr(die, 'DW_AT_name')
 
@@ -405,6 +409,14 @@ class DwarfModelBuilder:
     def visit_lexical_block(self, lexical_block_die):
         low_pc = die_get_attr(lexical_block_die, 'DW_AT_low_pc')
         high_pc = die_get_attr(lexical_block_die, 'DW_AT_high_pc')
+
+        form = die_get_attr_form(lexical_block_die, 'DW_AT_high_pc')
+        if form == 'DW_FORM_data8':
+            high_pc += low_pc
+        elif form == 'DW_FORM_addr':
+            pass
+        else:
+            assert False
 
         name = '0x{:x}-0x{:x}'.format(low_pc, high_pc)
 
