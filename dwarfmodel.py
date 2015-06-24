@@ -225,14 +225,12 @@ class DwarfModelBuilder:
             ret += " function("
 
             params = filter_children_by_tag(type_die, 'DW_TAG_formal_parameter')
-
+            params_formatted = []
             for param in params:
                 param_type_offset = die_get_type(param)
                 param_type_die = self.lookup_type(type_die.cu, param_type_offset)
-
-                ret += self.format_type_name(param_type_die)
-
-                ret += ", "
+                params_formatted.append(self.format_type_name(param_type_die))
+            ret += ', '.join(params_formatted)
 
             ret += ")"
 
